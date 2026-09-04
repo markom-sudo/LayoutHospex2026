@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layout Hospex 2026 — Elitech</title>
+<style>
+  :root{
+    --blue: #4F5FF0;
+    --blue-dark: #3B49CE;
+    --ink: #1C1D2B;
+    --muted: #6B7085;
+    --line: #E7E8F0;
+    --bg: #F4F5FA;
+    --maroon: #6B1F27;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+    background:var(--maroon);
+    color:var(--ink);
+  }
+
+  /* ---------- Stage (gambar booth + marker) ---------- */
+  .stage{
+    position:relative;
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    aspect-ratio:16/9;
+    overflow:hidden;
+    background:#fff;
+  }
+  .stage img.booth{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
+
+  /* ---------- Search bar ---------- */
+  .search-wrap{
+    position:absolute;
+    top:2%;
+    left:33%;
+    width:34%;
+    z-index:40;
+  }
+  .search-box{
+    display:flex;
+    align-items:center;
+    background:#fff;
+    border-radius:999px;
+    box-shadow:0 6px 18px rgba(0,0,0,.18);
+    padding:.55em 1.1em;
+    gap:.6em;
+  }
+  .search-box input{
+    flex:1;
+    border:none;
+    outline:none;
+    font-size:1em;
+    font-style:italic;
+    color:var(--ink);
+    background:transparent;
+  }
+  .search-box input::placeholder{ color:#9297AA; }
+  .search-btn{
+    width:2.1em;
+    height:2.1em;
+    border-radius:50%;
+    background:var(--blue);
+    border:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    cursor:pointer;
+    flex:none;
+  }
+  .search-btn svg{ width:55%; height:55%; }
+
+  .search-results{
+    margin-top:.5em;
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 10px 24px rgba(0,0,0,.2);
+    overflow:hidden;
+    max-height:min(50vh, 320px);
+    overflow-y:auto;
+    display:none;
+  }
+  .search-results.open{ display:block; }
+  .result-row{
+    display:grid;
+    grid-template-columns:1fr 1.3fr 1fr 1fr;
+    gap:.5em;
+    padding:.7em 1em;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    font-size:.85em;
+  }
+  .result-row:last-child{ border-bottom:none; }
+  .result-row:hover{ background:var(--bg); }
+  .result-row span.merk{ color:var(--muted); }
+  .result-row span.tipe{ font-weight:600; }
+  .result-empty{ padding:1em; color:var(--muted); font-size:.9em; text-align:center; }
+
+  /* ---------- Marker (angka bulat biru) ---------- */
+  .marker{
+    position:absolute;
+    width:2.6em;
+    height:2.6em;
+    border-radius:50%;
+    background:var(--blue);
+    color:#fff;
+    font-weight:700;
+    font-size:clamp(12px, 1.6vw, 18px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform:translate(-50%,-50%);
+    box-shadow:0 4px 10px rgba(0,0,0,.25);
+    cursor:pointer;
+    border:3px solid transparent;
+    transition:transform .15s ease, border-color .15s ease;
+    z-index:20;
+  }
+  .marker:hover{ transform:translate(-50%,-50%) scale(1.08); }
+  .marker.active{
+    border-color:#fff;
+    box-shadow:0 0 0 3px var(--blue), 0 4px 12px rgba(0,0,0,.3);
+  }
+
+  /* ---------- Toggle Atas / Samping ---------- */
+  .toggle-btn{
+    position:absolute;
+    bottom:4%;
+    left:50%;
+    transform:translateX(-50%);
+    background:#fff;
+    border:none;
+    border-radius:999px;
+    padding:.7em 3em;
+    font-weight:800;
+    letter-spacing:.05em;
+    color:var(--blue);
+    font-size:1em;
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(0,0,0,.25);
+    z-index:30;
+  }
+  .toggle-btn:hover{ background:#F0F1FF; }
+
+  /* ---------- Panel Rak Gudang ---------- */
+  .panel{
+    position:absolute;
+    top:2%;
+    right:1.5%;
+    width:26%;
+    min-width:230px;
+    background:#fff;
+    border-radius:14px;
+    box-shadow:0 10px 26px rgba(0,0,0,.28);
+    overflow:hidden;
+    z-index:35;
+    display:none;
+    max-height:88%;
+    display:none;
+    flex-direction:column;
+  }
+  .panel.open{ display:flex; }
+  .panel-head{
+    background:var(--blue);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    gap:.6em;
+    padding:.8em 1em;
+    font-weight:800;
+    font-size:clamp(13px,1.5vw,17px);
+  }
+  .panel-head .badge{
+    width:1.7em;
+    height:1.7em;
+    border-radius:50%;
+    background:#fff;
+    color:var(--blue);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    flex:none;
+  }
+  .panel-close{
+    margin-left:auto;
+    background:transparent;
+    border:none;
+    color:#fff;
+    font-size:1.2em;
+    cursor:pointer;
+    line-height:1;
+  }
+  .panel-body{
+    padding:.9em 1.1em 1.2em;
+    overflow-y:auto;
+    font-size:clamp(11px,1.3vw,14px);
+  }
+  .panel-group + .panel-group{ margin-top:.9em; }
+  .panel-group h4{
+    margin:0 0 .35em;
+    font-size:1em;
+    font-weight:700;
+  }
+  .panel-group ol{
+    margin:0;
+    padding-left:1.3em;
+  }
+  .panel-group li{ margin-bottom:.4em; }
+  .panel-group li .seri{
+    display:block;
+    font-size:.8em;
+    color:var(--muted);
+  }
+  .panel-empty{ color:var(--muted); font-size:.95em; }
+
+  @media (max-width:640px){
+    .search-wrap{ left:4%; width:92%; top:3%; }
+    .panel{ left:4%; right:4%; width:auto; top:auto; bottom:4%; max-height:60%; }
+    .toggle-btn{ padding:.6em 2em; bottom:2%; font-size:.85em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <img class="booth" id="boothImg" src="Top%20booth.png" alt="Layout booth">
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <input id="searchInput" type="text" placeholder="Cari apapun disini" autocomplete="off">
+      <button class="search-btn" id="searchBtn" aria-label="Cari">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div id="markerLayer"></div>
+
+  <div class="panel" id="panel">
+    <div class="panel-head">
+      <span class="badge" id="panelBadge">1</span>
+      <span>RAK GUDANG</span>
+      <button class="panel-close" id="panelClose" aria-label="Tutup">&times;</button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+
+  <button class="toggle-btn" id="toggleBtn">SAMPING</button>
+</div>
+
+<script>
+/* =========================================================
+   KONFIGURASI — sesuaikan sebelum deploy
+   ========================================================= */
+
+// URL Web App Google Apps Script (Deploy > New deployment > Web app > Anyone)
+var GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxUSXMrNO7yaazHO2rFQRtxusABwVLBzWUN06cnmlbtzszolsod4n8OAWfsAh2zWJ40pA/exec';
+
+// Nama file gambar (upload ke repo GitHub yang sama dengan file HTML ini)
+var IMAGES = {
+  atas: 'Top%20booth.png',
+  samping: 'Side%20booth.png'
+};
+
+// Posisi marker dalam persen (%) terhadap lebar/tinggi gambar.
+// Silakan kalibrasi ulang: buka halaman dengan ?debug=1 lalu klik di
+// titik yang benar pada gambar — koordinat %-nya akan tampil di console
+// dan di pojok kiri-bawah layar, tinggal salin ke sini.
+var HOTSPOTS = {
+  atas: {
+    1:  {x:31.8, y:19.1}, 2:  {x:41.7, y:25.2}, 3:  {x:49.9, y:16.5},
+    4:  {x:62.5, y:15.6}, 5:  {x:69.4, y:26.0}, 6:  {x:71.9, y:40.8},
+    7:  {x:20.8, y:69.3}, 8:  {x:19.4, y:79.8}, 9:  {x:48.9, y:79.9},
+    10: {x:62.9, y:64.5}, 11: {x:73.3, y:64.1}
+  },
+  samping: {
+    1:  {x:39.2, y:37.7}, 2:  {x:48.0, y:55.4}, 3:  {x:56.1, y:50.9},
+    4:  {x:68.1, y:51.9}, 5:  {x:74.5, y:58.9}, 6:  {x:64.3, y:63.2},
+    7:  {x:10.6, y:46.4}, 8:  {x:2.4,  y:46.1}, 9:  {x:23.8, y:56.9},
+    10: {x:41.1, y:79.9}, 11: {x:54.1, y:78.6}
+  }
+};
+
+/* ========================================================= */
+
+var state = { view: 'atas' };
+var els = {
+  stage: document.getElementById('stage'),
+  boothImg: document.getElementById('boothImg'),
+  markerLayer: document.getElementById('markerLayer'),
+  toggleBtn: document.getElementById('toggleBtn'),
+  panel: document.getElementById('panel'),
+  panelBadge: document.getElementById('panelBadge'),
+  panelBody: document.getElementById('panelBody'),
+  panelClose: document.getElementById('panelClose'),
+  searchInput: document.getElementById('searchInput'),
+  searchBtn: document.getElementById('searchBtn'),
+  searchResults: document.getElementById('searchResults')
+};
+
+/* ---------- JSONP helper (hindari masalah CORS) ---------- */
+function jsonp(action, params) {
+  return new Promise(function (resolve, reject) {
+    var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    var url = GAS_API_URL + '?action=' + encodeURIComponent(action) + '&callback=' + cbName;
+    Object.keys(params || {}).forEach(function (k) {
+      url += '&' + k + '=' + encodeURIComponent(params[k]);
+    });
+
+    window[cbName] = function (res) {
+      resolve(res);
+      delete window[cbName];
+      script.remove();
+    };
+
+    var script = document.createElement('script');
+    script.src = url;
+    script.onerror = function () {
+      reject(new Error('Gagal memuat data dari server'));
+      delete window[cbName];
+      script.remove();
+    };
+    document.body.appendChild(script);
+  });
+}
+
+/* ---------- Render marker sesuai view aktif ---------- */
+function renderMarkers() {
+  var coords = HOTSPOTS[state.view];
+  els.markerLayer.innerHTML = '';
+  Object.keys(coords).forEach(function (id) {
+    var pos = coords[id];
+    var m = document.createElement('div');
+    m.className = 'marker';
+    m.textContent = id;
+    m.style.left = pos.x + '%';
+    m.style.top = pos.y + '%';
+    m.dataset.id = id;
+    m.addEventListener('click', function () { openPanel(id, m); });
+    els.markerLayer.appendChild(m);
+  });
+}
+
+function setView(view) {
+  state.view = view;
+  els.boothImg.src = IMAGES[view];
+  els.toggleBtn.textContent = view === 'atas' ? 'SAMPING' : 'ATAS';
+  closePanel();
+  renderMarkers();
+}
+
+els.toggleBtn.addEventListener('click', function () {
+  setView(state.view === 'atas' ? 'samping' : 'atas');
+});
+
+/* ---------- Panel Rak Gudang ---------- */
+function openPanel(id, markerEl) {
+  document.querySelectorAll('.marker').forEach(function (m) { m.classList.remove('active'); });
+  if (markerEl) markerEl.classList.add('active');
+
+  els.panelBadge.textContent = id;
+  els.panelBody.innerHTML = '<p class="panel-empty">Memuat...</p>';
+  els.panel.classList.add('open');
+
+  jsonp('layout', { id: id }).then(function (res) {
+    if (!res.success) {
+      els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
+      return;
+    }
+    renderPanel(res.data);
+  }).catch(function () {
+    els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
+  });
+}
+
+function closePanel() {
+  els.panel.classList.remove('open');
+  document.querySelectorAll('.marker').forEach(function (m) { m.classList.remove('active'); });
+}
+els.panelClose.addEventListener('click', closePanel);
+
+function renderPanel(items) {
+  if (!items.length) {
+    els.panelBody.innerHTML = '<p class="panel-empty">Belum ada produk di titik ini.</p>';
+    return;
+  }
+  var groups = {};
+  items.forEach(function (p) {
+    var key = p.merk || 'Lainnya';
+    (groups[key] = groups[key] || []).push(p);
+  });
+
+  var html = '';
+  Object.keys(groups).forEach(function (merk) {
+    html += '<div class="panel-group"><h4>' + escapeHtml(merk) + '</h4><ol>';
+    groups[merk].forEach(function (p) {
+      var label = p.tipe || p.namaProduk;
+      html += '<li>' + escapeHtml(label);
+      if (p.noSeri) html += '<span class="seri">(' + escapeHtml(p.noSeri) + ')</span>';
+      html += '</li>';
+    });
+    html += '</ol></div>';
+  });
+  els.panelBody.innerHTML = html;
+}
+
+/* ---------- Pencarian ---------- */
+var searchTimer = null;
+els.searchInput.addEventListener('input', function () {
+  var q = els.searchInput.value.trim();
+  clearTimeout(searchTimer);
+  if (!q) { closeResults(); return; }
+  searchTimer = setTimeout(function () { runSearch(q); }, 300);
+});
+els.searchBtn.addEventListener('click', function () {
+  var q = els.searchInput.value.trim();
+  if (q) runSearch(q);
+});
+
+function runSearch(q) {
+  els.searchResults.classList.add('open');
+  els.searchResults.innerHTML = '<div class="result-empty">Mencari...</div>';
+  jsonp('search', { q: q }).then(function (res) {
+    if (!res.success) {
+      els.searchResults.innerHTML = '<div class="result-empty">Gagal mencari.</div>';
+      return;
+    }
+    renderResults(res.data);
+  }).catch(function () {
+    els.searchResults.innerHTML = '<div class="result-empty">Gagal mencari.</div>';
+  });
+}
+
+function renderResults(items) {
+  if (!items.length) {
+    els.searchResults.innerHTML = '<div class="result-empty">Tidak ditemukan.</div>';
+    return;
+  }
+  els.searchResults.innerHTML = items.map(function (p) {
+    return '<div class="result-row" data-layout="' + escapeHtml(p.layoutId) + '">' +
+      '<span class="merk">' + escapeHtml(p.merk) + '</span>' +
+      '<span>' + escapeHtml(p.namaProduk) + '</span>' +
+      '<span class="tipe">' + escapeHtml(p.tipe) + '</span>' +
+      '<span>' + escapeHtml(p.noSeri) + '</span>' +
+      '</div>';
+  }).join('');
+
+  els.searchResults.querySelectorAll('.result-row').forEach(function (row) {
+    row.addEventListener('click', function () {
+      var layoutId = row.dataset.layout;
+      closeResults();
+      if (!layoutId) return;
+      var markerEl = els.markerLayer.querySelector('[data-id="' + layoutId + '"]');
+      openPanel(layoutId, markerEl);
+      if (markerEl) markerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+}
+
+function closeResults() {
+  els.searchResults.classList.remove('open');
+  els.searchResults.innerHTML = '';
+}
+
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.search-wrap')) closeResults();
+});
+
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+/* ---------- Mode kalibrasi: tambahkan ?debug=1 di URL ---------- */
+if (new URLSearchParams(window.location.search).get('debug') === '1') {
+  var tip = document.createElement('div');
+  tip.style.cssText = 'position:absolute;left:0;bottom:0;background:#000;color:#0f0;' +
+    'font:12px monospace;padding:6px 10px;z-index:99;';
+  tip.textContent = 'Mode kalibrasi aktif — klik di gambar untuk lihat koordinat %';
+  els.stage.appendChild(tip);
+  els.stage.addEventListener('click', function (e) {
+    var r = els.stage.getBoundingClientRect();
+    var x = (((e.clientX - r.left) / r.width) * 100).toFixed(1);
+    var y = (((e.clientY - r.top) / r.height) * 100).toFixed(1);
+    tip.textContent = 'x:' + x + '  y:' + y;
+    console.log('{x:' + x + ', y:' + y + '}');
+  });
+}
+
+/* ---------- Init ---------- */
+setView('atas');
+</script>
+</body>
+</html>
