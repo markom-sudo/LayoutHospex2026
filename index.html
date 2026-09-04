@@ -401,13 +401,13 @@ var HOTSPOTS = {
   atas: {
     1:  {x:31.8, y:19.1}, 2:  {x:41.7, y:25.2}, 3:  {x:49.9, y:16.5},
     4:  {x:62.5, y:15.6}, 5:  {x:69.4, y:26.0}, 6:  {x:71.9, y:40.8},
-    7:  {x:20.8, y:69.3}, 8:  {x:19.4, y:79.8}, 9:  {x:48.9, y:79.9},
+    7:  {x:28.9, y:68.1}, 8:  {x:27.5, y:79.6}, 9:  {x:48.9, y:79.9},
     10: {x:62.9, y:64.5}, 11: {x:73.3, y:64.1}
   },
   samping: {
     1:  {x:39.2, y:37.7}, 2:  {x:48.0, y:55.4}, 3:  {x:56.1, y:50.9},
     4:  {x:68.1, y:51.9}, 5:  {x:74.5, y:58.9}, 6:  {x:64.3, y:63.2},
-    7:  {x:10.6, y:46.4}, 8:  {x:2.4,  y:46.1}, 9:  {x:23.8, y:56.9},
+    7:  {x:13.8, y:50.1}, 8:  {x:7.3,  y:49.9}, 9:  {x:23.8, y:56.9},
     10: {x:41.1, y:79.9}, 11: {x:54.1, y:78.6}
   }
 };
@@ -471,23 +471,76 @@ function loadLayoutNames() {
   }).catch(function () { /* nama titik opsional, biarkan default */ });
 }
 
+/* ---------- Pemetaan koordinat % gambar asli -> posisi piksel di layar ----------
+   Karena stage sekarang full-screen (bisa rasio berapa saja) dan gambar
+   ditampilkan dengan object-fit:cover, bagian gambar yang kepotong berubah-ubah
+   tergantung rasio layar. Supaya titik tetap pas di layar mana pun, hitung dulu
+   area gambar yang benar-benar terlihat (rumus yang sama seperti cover-fit),
+   baru taruh marker di piksel yang sesuai — bukan sekadar persen dari layar. */
+function getCoverRect() {
+  var img = els.boothImg;
+  var cw = els.stage.clientWidth;
+  var ch = els.stage.clientHeight;
+  var iw = img.naturalWidth;
+  var ih = img.naturalHeight;
+  if (!iw || !ih) return { offsetX: 0, offsetY: 0, renderedW: cw, renderedH: ch };
+  var scale = Math.max(cw / iw, ch / ih);
+  var renderedW = iw * scale;
+  var renderedH = ih * scale;
+  return {
+    offsetX: (cw - renderedW) / 2,
+    offsetY: (ch - renderedH) / 2,
+    renderedW: renderedW,
+    renderedH: renderedH
+  };
+}
+
+/** Reposisi semua marker yang sedang tampil sesuai ukuran layar saat ini. */
+function positionMarkers() {
+  var rect = getCoverRect();
+  var coords = HOTSPOTS[state.view];
+  els.markerLayer.querySelectorAll('.marker').forEach(function (m) {
+    var pos = coords[m.dataset.id];
+    if (!pos) return;
+    var px = rect.offsetX + (pos.x / 100) * rect.renderedW;
+    var py = rect.offsetY + (pos.y / 100) * rect.renderedH;
+    m.style.left = px + 'px';
+    m.style.top = py + 'px';
+  });
+}
+
+/** Pastikan positionMarkers dijalankan setelah gambar benar-benar termuat
+    (naturalWidth/Height baru terisi setelah load, termasuk saat ganti gambar). */
+function ensureMarkersPositioned() {
+  if (els.boothImg.complete && els.boothImg.naturalWidth) {
+    positionMarkers();
+  } else {
+    els.boothImg.addEventListener('load', positionMarkers, { once: true });
+  }
+}
+
 /* ---------- Render marker sesuai view aktif ---------- */
 function renderMarkers() {
   var coords = HOTSPOTS[state.view];
   els.markerLayer.innerHTML = '';
   Object.keys(coords).forEach(function (id) {
-    var pos = coords[id];
     var m = document.createElement('div');
     m.className = 'marker';
     m.textContent = id;
-    m.style.left = pos.x + '%';
-    m.style.top = pos.y + '%';
     m.dataset.id = id;
     if (layoutNames[id]) m.title = layoutNames[id];
     m.addEventListener('click', function () { onMarkerClick(id, m); });
     els.markerLayer.appendChild(m);
   });
+  ensureMarkersPositioned();
 }
+
+// Reposisi ulang saat ukuran jendela berubah (resize, putar layar, dll).
+var resizeTimer;
+window.addEventListener('resize', function () {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(positionMarkers, 120);
+});
 
 /* ---------- Ganti tampilan Atas <-> Samping ----------
    ATAS    -> geser vertikal (seolah kamera bergerak ke atas)
@@ -523,7 +576,7 @@ function setView(view, skipAnim) {
     state.view = view;
     img.src = IMAGES[view];
     els.toggleBtn.textContent = view === 'atas' ? 'SAMPING' : 'ATAS';
-    renderMarkers();
+    renderMarkers(); // renderMarkers() sudah memanggil ensureMarkersPositioned() sendiri
     els.markerLayer.classList.remove('fading');
 
     void img.offsetWidth;
