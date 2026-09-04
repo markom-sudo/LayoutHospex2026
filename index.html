@@ -6,8 +6,8 @@
 <title>Layout Hospex 2026 — Elitech</title>
 <style>
   :root{
-    --blue: #4F5FF0;
-    --blue-dark: #3B49CE;
+    --blue: #5170FF;
+    --blue-dark: #3549D6;
     --ink: #1C1D2B;
     --muted: #6B7085;
     --line: #E7E8F0;
@@ -218,6 +218,33 @@
   .toggle-btn:hover{ background:#F0F1FF; }
   .toggle-btn:active{ transform:translateX(-50%) scale(.95); }
 
+  /* ---------- Tombol Unduh / Cetak PDF ---------- */
+  .print-btn{
+    position:absolute;
+    top:2%;
+    left:1.5%;
+    z-index:40;
+    display:flex;
+    align-items:center;
+    gap:.5em;
+    background:var(--blue);
+    color:#fff;
+    border:none;
+    border-radius:999px;
+    padding:.7em 1.1em;
+    font-weight:800;
+    font-size:.85em;
+    letter-spacing:.03em;
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(0,0,0,.25);
+    transition:transform .15s ease, background .15s ease, opacity .15s ease;
+  }
+  .print-btn:hover{ background:var(--blue-dark); }
+  .print-btn:active{ transform:scale(.95); }
+  .print-btn:disabled{ opacity:.6; cursor:default; transform:none; }
+  .print-btn svg{ width:1.3em; height:1.3em; flex:none; }
+  .print-btn span.label{ white-space:nowrap; }
+
   /* ---------- Panel Rak Gudang ---------- */
   .panel{
     position:absolute;
@@ -295,29 +322,36 @@
     margin:0;
     padding-left:1.3em;
   }
-  .panel-group li{ margin-bottom:.55em; border-radius:8px; transition:background .3s ease; }
+  .panel-group li{ margin-bottom:.6em; border-radius:8px; transition:background .3s ease; }
+
+  /* Baris nama produk ...... TIPE (garis titik-titik seperti daftar isi) */
   .item-main{
     display:flex;
-    justify-content:space-between;
     align-items:baseline;
-    gap:.5em;
+    gap:.35em;
     font-weight:600;
   }
+  .item-main .item-name{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:60%;
+  }
+  .item-main .dots{
+    flex:1 1 auto;
+    min-width:10px;
+    border-bottom:2px dotted #C7CAE0;
+    margin:0 .25em .22em;
+  }
   .item-main .item-tipe{
-    color:var(--blue-dark);
-    font-weight:700;
+    color:var(--blue);
+    font-weight:800;
     white-space:nowrap;
   }
   .panel-group li .seri{
     display:block;
     font-size:.8em;
     color:var(--muted);
-  }
-  .panel-group li .note{
-    display:block;
-    font-size:.8em;
-    color:#8A8FA3;
-    font-style:italic;
     margin-top:.1em;
   }
   .panel-empty{ color:var(--muted); font-size:.95em; }
@@ -339,6 +373,128 @@
     .search-wrap{ left:4%; width:92%; top:3%; }
     .panel{ left:4%; right:4%; width:auto; top:auto; bottom:4%; max-height:60%; }
     .toggle-btn{ padding:.6em 2em; bottom:2%; font-size:.85em; }
+    .print-btn{ padding:.6em .9em; font-size:.75em; }
+    .print-btn span.label{ display:none; }
+  }
+
+  /* =========================================================
+     LAPORAN CETAK / PDF — hanya tampil saat window.print()
+     ========================================================= */
+  #printReport{ display:none; }
+
+  @media print{
+    @page{ size:A4; margin:14mm; }
+    html, body{ height:auto; overflow:visible; background:#fff; }
+    body *{ visibility:hidden; }
+    #printReport, #printReport *{ visibility:visible; }
+    #printReport{
+      display:block;
+      position:absolute;
+      left:0; top:0; width:100%;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+  }
+
+  #printReport{
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+    color:var(--ink);
+  }
+  #printReport .report-header{
+    margin-bottom:18px;
+    border-bottom:3px solid var(--blue);
+    padding-bottom:10px;
+  }
+  #printReport .report-header h1{
+    margin:0 0 4px;
+    font-size:20px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  #printReport .report-header .report-sub{
+    margin:0;
+    font-size:11px;
+    color:var(--muted);
+  }
+  #printReport .merk-block{
+    margin-bottom:22px;
+    page-break-inside:auto;
+  }
+  #printReport .merk-block + .merk-block{
+    page-break-before:always;
+  }
+  #printReport .merk-header{
+    background:var(--blue);
+    color:#fff;
+    font-weight:800;
+    font-size:16px;
+    letter-spacing:.03em;
+    padding:.55em 1em;
+    border-radius:10px;
+    margin-bottom:14px;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  #printReport .lokasi-block{
+    margin:0 0 16px;
+    page-break-inside:avoid;
+  }
+  #printReport .lokasi-header{
+    display:flex;
+    align-items:center;
+    gap:.5em;
+    margin-bottom:.45em;
+  }
+  #printReport .lokasi-badge{
+    width:1.6em;
+    height:1.6em;
+    border-radius:50%;
+    background:var(--blue);
+    color:#fff;
+    font-weight:800;
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:none;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  #printReport .lokasi-name{
+    font-weight:700;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.02em;
+  }
+  #printReport ol{
+    margin:0;
+    padding-left:1.4em;
+    font-size:12px;
+  }
+  #printReport li{ margin-bottom:.55em; break-inside:avoid; }
+  #printReport .item-main{
+    display:flex;
+    align-items:baseline;
+    gap:.3em;
+    font-weight:600;
+  }
+  #printReport .item-main .item-name{ white-space:nowrap; }
+  #printReport .item-main .dots{
+    flex:1 1 auto;
+    min-width:10px;
+    border-bottom:2px dotted #B7BAD0;
+    margin:0 .25em .18em;
+  }
+  #printReport .item-main .item-tipe{
+    color:var(--blue);
+    font-weight:800;
+    white-space:nowrap;
+  }
+  #printReport .seri{
+    display:block;
+    font-size:10.5px;
+    color:var(--muted);
+    margin-top:1px;
   }
 </style>
 </head>
@@ -347,6 +503,15 @@
 <div class="viewport">
   <div class="stage" id="stage">
     <img class="booth" id="boothImg" src="Top%20booth.png" alt="Layout booth">
+
+    <button class="print-btn" id="printBtn" title="Unduh / Cetak PDF semua produk">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12"></path>
+        <path d="M7 10l5 5 5-5"></path>
+        <path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+      </svg>
+      <span class="label">PDF</span>
+    </button>
 
     <div class="search-wrap">
       <div class="search-box">
@@ -375,6 +540,9 @@
     <button class="toggle-btn" id="toggleBtn">SAMPING</button>
   </div>
 </div>
+
+<!-- Wadah laporan — hanya terlihat saat mode cetak (window.print) -->
+<div id="printReport"></div>
 
 <script>
 /* =========================================================
@@ -429,7 +597,9 @@ var els = {
   panelClose: document.getElementById('panelClose'),
   searchInput: document.getElementById('searchInput'),
   searchBtn: document.getElementById('searchBtn'),
-  searchResults: document.getElementById('searchResults')
+  searchResults: document.getElementById('searchResults'),
+  printBtn: document.getElementById('printBtn'),
+  printReport: document.getElementById('printReport')
 };
 
 /* ---------- JSONP helper (hindari masalah CORS) ---------- */
@@ -644,6 +814,18 @@ function itemKey(p) {
   return [p.noSeri || '', p.namaProduk || '', p.tipe || '', p.merk || ''].join('||');
 }
 
+/** Baris "Nama produk ...... TIPE" dengan garis titik-titik + no. seri di bawahnya,
+    dipakai baik di panel titik layout maupun di laporan cetak/PDF. */
+function itemRowHtml(p, dataKeyAttr) {
+  var html = '<li' + (dataKeyAttr ? ' data-key="' + escapeHtml(itemKey(p)) + '"' : '') + '>';
+  html += '<div class="item-main"><span class="item-name">' + escapeHtml(p.namaProduk) + '</span><span class="dots"></span>';
+  if (p.tipe) html += '<span class="item-tipe">' + escapeHtml(p.tipe) + '</span>';
+  html += '</div>';
+  if (p.noSeri) html += '<span class="seri">(' + escapeHtml(p.noSeri) + ')</span>';
+  html += '</li>';
+  return html;
+}
+
 function renderPanel(items, highlightKey) {
   if (!items.length) {
     els.panelBody.innerHTML = '<p class="panel-empty">Belum ada produk di titik ini.</p>';
@@ -659,12 +841,7 @@ function renderPanel(items, highlightKey) {
   Object.keys(groups).forEach(function (merk) {
     html += '<div class="panel-group"><h4>' + escapeHtml(merk) + '</h4><ol>';
     groups[merk].forEach(function (p) {
-      html += '<li data-key="' + escapeHtml(itemKey(p)) + '"><div class="item-main"><span>' + escapeHtml(p.namaProduk) + '</span>';
-      if (p.tipe) html += '<span class="item-tipe">' + escapeHtml(p.tipe) + '</span>';
-      html += '</div>';
-      if (p.noSeri) html += '<span class="seri">No. Seri: ' + escapeHtml(p.noSeri) + '</span>';
-      if (p.keterangan) html += '<span class="note">' + escapeHtml(p.keterangan) + '</span>';
-      html += '</li>';
+      html += itemRowHtml(p, true);
     });
     html += '</ol></div>';
   });
@@ -779,6 +956,119 @@ function escapeHtml(str) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
+
+/* =========================================================
+   UNDUH / CETAK PDF — seluruh produk, dikelompokkan per MERK,
+   lalu per LOKASI/NAMA LAYOUT di dalam tiap merk.
+   Memakai dialog cetak bawaan browser (pilih "Simpan sebagai PDF"),
+   jadi tidak perlu library atau server tambahan.
+   ========================================================= */
+
+function buildPrintReportHtml(products, layoutNameById) {
+  // 1) kelompokkan per MERK
+  var byMerk = {};
+  products.forEach(function (p) {
+    var merk = p.merk || 'Lainnya';
+    (byMerk[merk] = byMerk[merk] || []).push(p);
+  });
+  var merkKeys = Object.keys(byMerk).sort(function (a, b) {
+    if (a === 'Lainnya') return 1;
+    if (b === 'Lainnya') return -1;
+    return a.localeCompare(b, 'id', { sensitivity: 'base' });
+  });
+
+  var tanggal = new Date().toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  var html = '';
+  html += '<div class="report-header">';
+  html += '  <h1>Daftar Produk — Layout Hospex 2026</h1>';
+  html += '  <p class="report-sub">Dikelompokkan per Merk, per Lokasi/Titik Layout &middot; Dicetak ' +
+          escapeHtml(tanggal) + ' &middot; Total ' + products.length + ' item</p>';
+  html += '</div>';
+
+  merkKeys.forEach(function (merk) {
+    var items = byMerk[merk];
+
+    // 2) di dalam tiap merk, kelompokkan per LOKASI (ID layout)
+    var byLoc = {};
+    items.forEach(function (p) {
+      var locId = p.layoutId || '';
+      (byLoc[locId] = byLoc[locId] || []).push(p);
+    });
+    var locKeys = Object.keys(byLoc).sort(function (a, b) {
+      if (a === '') return 1;
+      if (b === '') return -1;
+      return Number(a) - Number(b);
+    });
+
+    html += '<div class="merk-block">';
+    html += '  <div class="merk-header">' + escapeHtml(merk) + '</div>';
+
+    locKeys.forEach(function (locId) {
+      var locItems = byLoc[locId];
+      var locName = locId
+        ? (layoutNameById[locId] || locItems[0].layoutNama || ('Titik ' + locId))
+        : (locItems[0].layoutNama || 'Belum Ditentukan');
+
+      html += '  <div class="lokasi-block">';
+      html += '    <div class="lokasi-header">';
+      if (locId) html += '<span class="lokasi-badge">' + escapeHtml(locId) + '</span>';
+      html += '<span class="lokasi-name">' + escapeHtml(locName) + '</span>';
+      html += '    </div>';
+      html += '    <ol>';
+      locItems.forEach(function (p) {
+        html += itemRowHtml(p, false);
+      });
+      html += '    </ol>';
+      html += '  </div>';
+    });
+
+    html += '</div>';
+  });
+
+  return html;
+}
+
+function handleDownloadPdf() {
+  if (els.printBtn.disabled) return;
+  els.printBtn.disabled = true;
+  var originalHtml = els.printBtn.innerHTML;
+  els.printBtn.innerHTML = '<span class="label">Menyiapkan...</span>';
+
+  Promise.all([
+    jsonp('list', {}),
+    jsonp('points', {}).catch(function () { return { success: false }; })
+  ]).then(function (results) {
+    var listRes = results[0];
+    var pointsRes = results[1];
+    if (!listRes.success) throw new Error(listRes.error || 'Gagal memuat data produk');
+
+    var layoutNameById = {};
+    if (pointsRes.success) {
+      pointsRes.data.forEach(function (p) { layoutNameById[p.id] = p.name; });
+    } else {
+      Object.keys(layoutNames).forEach(function (k) { layoutNameById[k] = layoutNames[k]; });
+    }
+
+    els.printReport.innerHTML = buildPrintReportHtml(listRes.data, layoutNameById);
+
+    // Beri browser sedikit waktu untuk render sebelum dialog cetak muncul.
+    setTimeout(function () { window.print(); }, 50);
+  }).catch(function (err) {
+    alert('Gagal menyiapkan PDF: ' + err.message);
+  }).finally(function () {
+    els.printBtn.disabled = false;
+    els.printBtn.innerHTML = originalHtml;
+  });
+}
+
+els.printBtn.addEventListener('click', handleDownloadPdf);
+
+window.addEventListener('afterprint', function () {
+  els.printReport.innerHTML = '';
+});
 
 /* ---------- Mode kalibrasi: tambahkan ?debug=1 di URL ---------- */
 if (new URLSearchParams(window.location.search).get('debug') === '1') {
