@@ -15,22 +15,29 @@
     --maroon: #6B1F27;
   }
   *{box-sizing:border-box;}
+  html, body{ height:100%; margin:0; overflow:hidden; }
   body{
-    margin:0;
     font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
     background:var(--maroon);
     color:var(--ink);
   }
 
-  /* ---------- Stage (gambar booth + marker) ---------- */
+  /* ---------- Viewport penuh layar, gambar di-tengah ---------- */
+  .viewport{
+    width:100vw;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
   .stage{
     position:relative;
-    width:100%;
-    max-width:1400px;
-    margin:0 auto;
     aspect-ratio:16/9;
+    width:min(100vw, calc(100vh * 16 / 9));
+    height:min(100vh, calc(100vw * 9 / 16));
     overflow:hidden;
     background:#fff;
+    perspective:1800px;
   }
   .stage img.booth{
     position:absolute;
@@ -41,7 +48,28 @@
     display:block;
     user-select:none;
     -webkit-user-drag:none;
+    backface-visibility:hidden;
+    will-change:transform, opacity;
   }
+
+  /* Animasi "roll" 3D saat ganti tampilan Atas/Samping */
+  @keyframes rollOut{
+    from{ transform:rotateY(0deg);   opacity:1; }
+    to  { transform:rotateY(92deg);  opacity:.25; }
+  }
+  @keyframes rollIn{
+    from{ transform:rotateY(-92deg); opacity:.25; }
+    to  { transform:rotateY(0deg);   opacity:1; }
+  }
+  .roll-out{ animation:rollOut .38s cubic-bezier(.55,0,.85,.35) forwards; }
+  .roll-in{ animation:rollIn .38s cubic-bezier(.15,.65,.45,1) forwards; }
+
+  #markerLayer{
+    position:absolute;
+    inset:0;
+    transition:opacity .2s ease;
+  }
+  #markerLayer.fading{ opacity:0; }
 
   /* ---------- Search bar ---------- */
   .search-wrap{
@@ -82,7 +110,9 @@
     color:#fff;
     cursor:pointer;
     flex:none;
+    transition:transform .15s ease;
   }
+  .search-btn:active{ transform:scale(.9); }
   .search-btn svg{ width:55%; height:55%; }
 
   .search-results{
@@ -136,6 +166,24 @@
     border-color:#fff;
     box-shadow:0 0 0 3px var(--blue), 0 4px 12px rgba(0,0,0,.3);
   }
+  .marker.bump{ animation:markerBump .3s ease; }
+  @keyframes markerBump{
+    0%{ transform:translate(-50%,-50%) scale(1); }
+    40%{ transform:translate(-50%,-50%) scale(1.35); }
+    100%{ transform:translate(-50%,-50%) scale(1); }
+  }
+  .ripple{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:2px solid #fff;
+    pointer-events:none;
+    animation:rippleAnim .55s ease-out forwards;
+  }
+  @keyframes rippleAnim{
+    from{ transform:scale(1);   opacity:.9; }
+    to  { transform:scale(2.4); opacity:0; }
+  }
 
   /* ---------- Toggle Atas / Samping ---------- */
   .toggle-btn{
@@ -154,8 +202,10 @@
     cursor:pointer;
     box-shadow:0 6px 16px rgba(0,0,0,.25);
     z-index:30;
+    transition:transform .15s ease, background .15s ease;
   }
   .toggle-btn:hover{ background:#F0F1FF; }
+  .toggle-btn:active{ transform:translateX(-50%) scale(.95); }
 
   /* ---------- Panel Rak Gudang ---------- */
   .panel{
@@ -169,12 +219,19 @@
     box-shadow:0 10px 26px rgba(0,0,0,.28);
     overflow:hidden;
     z-index:35;
-    display:none;
-    max-height:88%;
-    display:none;
+    display:flex;
     flex-direction:column;
+    max-height:88%;
+    opacity:0;
+    transform:translateY(-10px) scale(.95);
+    pointer-events:none;
+    transition:opacity .22s ease, transform .22s ease;
   }
-  .panel.open{ display:flex; }
+  .panel.open{
+    opacity:1;
+    transform:translateY(0) scale(1);
+    pointer-events:auto;
+  }
   .panel-head{
     background:var(--blue);
     color:#fff;
@@ -197,6 +254,11 @@
     font-weight:800;
     flex:none;
   }
+  .panel-head .title{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
   .panel-close{
     margin-left:auto;
     background:transparent;
@@ -205,6 +267,7 @@
     font-size:1.2em;
     cursor:pointer;
     line-height:1;
+    flex:none;
   }
   .panel-body{
     padding:.9em 1.1em 1.2em;
@@ -221,11 +284,30 @@
     margin:0;
     padding-left:1.3em;
   }
-  .panel-group li{ margin-bottom:.4em; }
+  .panel-group li{ margin-bottom:.55em; }
+  .item-main{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:.5em;
+    font-weight:600;
+  }
+  .item-main .item-tipe{
+    color:var(--blue-dark);
+    font-weight:700;
+    white-space:nowrap;
+  }
   .panel-group li .seri{
     display:block;
     font-size:.8em;
     color:var(--muted);
+  }
+  .panel-group li .note{
+    display:block;
+    font-size:.8em;
+    color:#8A8FA3;
+    font-style:italic;
+    margin-top:.1em;
   }
   .panel-empty{ color:var(--muted); font-size:.95em; }
 
@@ -238,34 +320,36 @@
 </head>
 <body>
 
-<div class="stage" id="stage">
-  <img class="booth" id="boothImg" src="Top%20booth.png" alt="Layout booth">
+<div class="viewport">
+  <div class="stage" id="stage">
+    <img class="booth" id="boothImg" src="Top%20booth.png" alt="Layout booth">
 
-  <div class="search-wrap">
-    <div class="search-box">
-      <input id="searchInput" type="text" placeholder="Cari apapun disini" autocomplete="off">
-      <button class="search-btn" id="searchBtn" aria-label="Cari">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="11" cy="11" r="7"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-      </button>
+    <div class="search-wrap">
+      <div class="search-box">
+        <input id="searchInput" type="text" placeholder="Cari apapun disini" autocomplete="off">
+        <button class="search-btn" id="searchBtn" aria-label="Cari">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
     </div>
-    <div class="search-results" id="searchResults"></div>
-  </div>
 
-  <div id="markerLayer"></div>
+    <div id="markerLayer"></div>
 
-  <div class="panel" id="panel">
-    <div class="panel-head">
-      <span class="badge" id="panelBadge">1</span>
-      <span>RAK GUDANG</span>
-      <button class="panel-close" id="panelClose" aria-label="Tutup">&times;</button>
+    <div class="panel" id="panel">
+      <div class="panel-head">
+        <span class="badge" id="panelBadge">1</span>
+        <span class="title" id="panelTitle">TITIK 1</span>
+        <button class="panel-close" id="panelClose" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
     </div>
-    <div class="panel-body" id="panelBody"></div>
-  </div>
 
-  <button class="toggle-btn" id="toggleBtn">SAMPING</button>
+    <button class="toggle-btn" id="toggleBtn">SAMPING</button>
+  </div>
 </div>
 
 <script>
@@ -303,7 +387,9 @@ var HOTSPOTS = {
 
 /* ========================================================= */
 
-var state = { view: 'atas' };
+var state = { view: 'atas', animating: false };
+var layoutNames = {}; // diisi dari sheet LAYOUT: {id: nama}
+
 var els = {
   stage: document.getElementById('stage'),
   boothImg: document.getElementById('boothImg'),
@@ -311,6 +397,7 @@ var els = {
   toggleBtn: document.getElementById('toggleBtn'),
   panel: document.getElementById('panel'),
   panelBadge: document.getElementById('panelBadge'),
+  panelTitle: document.getElementById('panelTitle'),
   panelBody: document.getElementById('panelBody'),
   panelClose: document.getElementById('panelClose'),
   searchInput: document.getElementById('searchInput'),
@@ -344,6 +431,19 @@ function jsonp(action, params) {
   });
 }
 
+/* ---------- Nama titik dari sheet LAYOUT ---------- */
+function loadLayoutNames() {
+  jsonp('points', {}).then(function (res) {
+    if (!res.success) return;
+    layoutNames = {};
+    res.data.forEach(function (p) { layoutNames[p.id] = p.name; });
+    document.querySelectorAll('.marker').forEach(function (m) {
+      var name = layoutNames[m.dataset.id];
+      if (name) m.title = name;
+    });
+  }).catch(function () { /* nama titik opsional, biarkan default */ });
+}
+
 /* ---------- Render marker sesuai view aktif ---------- */
 function renderMarkers() {
   var coords = HOTSPOTS[state.view];
@@ -356,29 +456,78 @@ function renderMarkers() {
     m.style.left = pos.x + '%';
     m.style.top = pos.y + '%';
     m.dataset.id = id;
-    m.addEventListener('click', function () { openPanel(id, m); });
+    if (layoutNames[id]) m.title = layoutNames[id];
+    m.addEventListener('click', function () { onMarkerClick(id, m); });
     els.markerLayer.appendChild(m);
   });
 }
 
-function setView(view) {
-  state.view = view;
-  els.boothImg.src = IMAGES[view];
-  els.toggleBtn.textContent = view === 'atas' ? 'SAMPING' : 'ATAS';
+/* ---------- Ganti tampilan Atas <-> Samping dengan animasi roll 3D ---------- */
+function setView(view, skipAnim) {
+  if (state.view === view && !skipAnim) return;
+  if (state.animating) return;
+
   closePanel();
-  renderMarkers();
+  var img = els.boothImg;
+
+  if (skipAnim) {
+    state.view = view;
+    img.src = IMAGES[view];
+    els.toggleBtn.textContent = view === 'atas' ? 'SAMPING' : 'ATAS';
+    renderMarkers();
+    return;
+  }
+
+  state.animating = true;
+  els.markerLayer.classList.add('fading');
+  img.classList.remove('roll-in');
+  void img.offsetWidth; // reflow, biar animasi restart
+  img.classList.add('roll-out');
+
+  img.addEventListener('animationend', function onRollOut() {
+    img.removeEventListener('animationend', onRollOut);
+    state.view = view;
+    img.src = IMAGES[view];
+    els.toggleBtn.textContent = view === 'atas' ? 'SAMPING' : 'ATAS';
+    renderMarkers();
+    els.markerLayer.classList.remove('fading');
+
+    img.classList.remove('roll-out');
+    void img.offsetWidth;
+    img.classList.add('roll-in');
+    img.addEventListener('animationend', function onRollIn() {
+      img.removeEventListener('animationend', onRollIn);
+      img.classList.remove('roll-in');
+      state.animating = false;
+    });
+  });
 }
 
 els.toggleBtn.addEventListener('click', function () {
   setView(state.view === 'atas' ? 'samping' : 'atas');
 });
 
-/* ---------- Panel Rak Gudang ---------- */
+/* ---------- Klik marker: animasi ripple + buka panel ---------- */
+function onMarkerClick(id, markerEl) {
+  markerEl.classList.remove('bump');
+  void markerEl.offsetWidth;
+  markerEl.classList.add('bump');
+
+  var ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  markerEl.appendChild(ripple);
+  ripple.addEventListener('animationend', function () { ripple.remove(); });
+
+  openPanel(id, markerEl);
+}
+
+/* ---------- Panel info titik layout ---------- */
 function openPanel(id, markerEl) {
   document.querySelectorAll('.marker').forEach(function (m) { m.classList.remove('active'); });
   if (markerEl) markerEl.classList.add('active');
 
   els.panelBadge.textContent = id;
+  els.panelTitle.textContent = layoutNames[id] ? layoutNames[id].toUpperCase() : ('TITIK ' + id);
   els.panelBody.innerHTML = '<p class="panel-empty">Memuat...</p>';
   els.panel.classList.add('open');
 
@@ -387,7 +536,8 @@ function openPanel(id, markerEl) {
       els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
       return;
     }
-    renderPanel(res.data);
+    if (res.data.name) els.panelTitle.textContent = res.data.name.toUpperCase();
+    renderPanel(res.data.items || []);
   }).catch(function () {
     els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
   });
@@ -414,9 +564,11 @@ function renderPanel(items) {
   Object.keys(groups).forEach(function (merk) {
     html += '<div class="panel-group"><h4>' + escapeHtml(merk) + '</h4><ol>';
     groups[merk].forEach(function (p) {
-      var label = p.tipe || p.namaProduk;
-      html += '<li>' + escapeHtml(label);
-      if (p.noSeri) html += '<span class="seri">(' + escapeHtml(p.noSeri) + ')</span>';
+      html += '<li><div class="item-main"><span>' + escapeHtml(p.namaProduk) + '</span>';
+      if (p.tipe) html += '<span class="item-tipe">' + escapeHtml(p.tipe) + '</span>';
+      html += '</div>';
+      if (p.noSeri) html += '<span class="seri">No. Seri: ' + escapeHtml(p.noSeri) + '</span>';
+      if (p.keterangan) html += '<span class="note">' + escapeHtml(p.keterangan) + '</span>';
       html += '</li>';
     });
     html += '</ol></div>';
@@ -471,8 +623,12 @@ function renderResults(items) {
       closeResults();
       if (!layoutId) return;
       var markerEl = els.markerLayer.querySelector('[data-id="' + layoutId + '"]');
-      openPanel(layoutId, markerEl);
-      if (markerEl) markerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (markerEl) {
+        onMarkerClick(layoutId, markerEl);
+        markerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        openPanel(layoutId, null);
+      }
     });
   });
 }
@@ -509,7 +665,8 @@ if (new URLSearchParams(window.location.search).get('debug') === '1') {
 }
 
 /* ---------- Init ---------- */
-setView('atas');
+loadLayoutNames();
+setView('atas', true);
 </script>
 </body>
 </html>
