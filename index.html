@@ -13,16 +13,17 @@
     --line: #E7E8F0;
     --bg: #F4F5FA;
     --maroon: #6B1F27;
+    --highlight: #FFE58A;
   }
   *{box-sizing:border-box;}
   html, body{ height:100%; margin:0; overflow:hidden; }
   body{
     font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
-    background:var(--maroon);
+    background:#000;
     color:var(--ink);
   }
 
-  /* ---------- Viewport penuh layar, gambar di-tengah ---------- */
+  /* ---------- Fullscreen: stage mengisi seluruh layar (tidak ada letterbox) ---------- */
   .viewport{
     width:100vw;
     height:100vh;
@@ -32,12 +33,10 @@
   }
   .stage{
     position:relative;
-    aspect-ratio:16/9;
-    width:min(100vw, calc(100vh * 16 / 9));
-    height:min(100vh, calc(100vw * 9 / 16));
+    width:100vw;
+    height:100vh;
     overflow:hidden;
     background:#fff;
-    perspective:1800px;
   }
   .stage img.booth{
     position:absolute;
@@ -45,24 +44,36 @@
     width:100%;
     height:100%;
     object-fit:cover;
+    object-position:center;
     display:block;
     user-select:none;
     -webkit-user-drag:none;
-    backface-visibility:hidden;
     will-change:transform, opacity;
   }
 
-  /* Animasi "roll" 3D saat ganti tampilan Atas/Samping */
-  @keyframes rollOut{
-    from{ transform:rotateY(0deg);   opacity:1; }
-    to  { transform:rotateY(92deg);  opacity:.25; }
+  /* ---------- Animasi perpindahan tampilan ----------
+     ATAS   -> geser VERTIKAL (seolah bergerak ke atas)
+     SAMPING-> geser HORIZONTAL (seolah bergerak ke samping) */
+  @keyframes slideOutUp{
+    from{ transform:translateY(0);    opacity:1; }
+    to  { transform:translateY(-12%); opacity:.15; }
   }
-  @keyframes rollIn{
-    from{ transform:rotateY(-92deg); opacity:.25; }
-    to  { transform:rotateY(0deg);   opacity:1; }
+  @keyframes slideInUp{
+    from{ transform:translateY(12%);  opacity:.15; }
+    to  { transform:translateY(0);    opacity:1; }
   }
-  .roll-out{ animation:rollOut .38s cubic-bezier(.55,0,.85,.35) forwards; }
-  .roll-in{ animation:rollIn .38s cubic-bezier(.15,.65,.45,1) forwards; }
+  @keyframes slideOutSide{
+    from{ transform:translateX(0);    opacity:1; }
+    to  { transform:translateX(-12%); opacity:.15; }
+  }
+  @keyframes slideInSide{
+    from{ transform:translateX(12%);  opacity:.15; }
+    to  { transform:translateX(0);    opacity:1; }
+  }
+  .slide-out-up{   animation:slideOutUp   .35s ease-in forwards; }
+  .slide-in-up{    animation:slideInUp    .35s ease-out forwards; }
+  .slide-out-side{ animation:slideOutSide .35s ease-in forwards; }
+  .slide-in-side{  animation:slideInSide  .35s ease-out forwards; }
 
   #markerLayer{
     position:absolute;
@@ -284,7 +295,7 @@
     margin:0;
     padding-left:1.3em;
   }
-  .panel-group li{ margin-bottom:.55em; }
+  .panel-group li{ margin-bottom:.55em; border-radius:8px; transition:background .3s ease; }
   .item-main{
     display:flex;
     justify-content:space-between;
@@ -310,6 +321,19 @@
     margin-top:.1em;
   }
   .panel-empty{ color:var(--muted); font-size:.95em; }
+
+  /* Highlight item hasil klik pencarian — menyala ~2 detik lalu memudar */
+  .panel-group li.highlight{
+    background:var(--highlight);
+    box-shadow:0 0 0 2px var(--blue);
+    padding:.35em .4em;
+    animation:highlightFade 2s ease forwards;
+  }
+  @keyframes highlightFade{
+    0%{ background:var(--highlight); }
+    70%{ background:var(--highlight); }
+    100%{ background:transparent; box-shadow:0 0 0 0 transparent; }
+  }
 
   @media (max-width:640px){
     .search-wrap{ left:4%; width:92%; top:3%; }
@@ -366,10 +390,13 @@ var IMAGES = {
   samping: 'Side%20booth.png'
 };
 
-// Posisi marker dalam persen (%) terhadap lebar/tinggi gambar.
-// Silakan kalibrasi ulang: buka halaman dengan ?debug=1 lalu klik di
-// titik yang benar pada gambar — koordinat %-nya akan tampil di console
-// dan di pojok kiri-bawah layar, tinggal salin ke sini.
+// Posisi marker dalam persen (%) terhadap lebar/tinggi gambar (dengan object-fit: cover).
+// PENTING: karena stage sekarang full-screen (cover, bisa crop di layar yang
+// rasio-nya bukan 16:9), kalibrasi ulang semua titik disarankan — terutama titik
+// yang dekat tepi gambar (7 & 8 saat ini paling dekat ke pinggir).
+// Cara kalibrasi: buka halaman dengan ?debug=1, klik tepat di titik yang benar
+// pada gambar, koordinat %-nya akan tampil di pojok kiri-bawah & console —
+// tinggal salin ke sini.
 var HOTSPOTS = {
   atas: {
     1:  {x:31.8, y:19.1}, 2:  {x:41.7, y:25.2}, 3:  {x:49.9, y:16.5},
@@ -462,13 +489,18 @@ function renderMarkers() {
   });
 }
 
-/* ---------- Ganti tampilan Atas <-> Samping dengan animasi roll 3D ---------- */
+/* ---------- Ganti tampilan Atas <-> Samping ----------
+   ATAS    -> geser vertikal (seolah kamera bergerak ke atas)
+   SAMPING -> geser horizontal (seolah kamera bergerak ke samping) */
 function setView(view, skipAnim) {
   if (state.view === view && !skipAnim) return;
   if (state.animating) return;
 
   closePanel();
   var img = els.boothImg;
+  var axis = view === 'atas' ? 'up' : 'side';
+  var outClass = axis === 'up' ? 'slide-out-up' : 'slide-out-side';
+  var inClass  = axis === 'up' ? 'slide-in-up'  : 'slide-in-side';
 
   if (skipAnim) {
     state.view = view;
@@ -480,24 +512,25 @@ function setView(view, skipAnim) {
 
   state.animating = true;
   els.markerLayer.classList.add('fading');
-  img.classList.remove('roll-in');
+  img.classList.remove('slide-in-up', 'slide-in-side');
   void img.offsetWidth; // reflow, biar animasi restart
-  img.classList.add('roll-out');
+  img.classList.add(outClass);
 
-  img.addEventListener('animationend', function onRollOut() {
-    img.removeEventListener('animationend', onRollOut);
+  img.addEventListener('animationend', function onSlideOut() {
+    img.removeEventListener('animationend', onSlideOut);
+    img.classList.remove(outClass);
+
     state.view = view;
     img.src = IMAGES[view];
     els.toggleBtn.textContent = view === 'atas' ? 'SAMPING' : 'ATAS';
     renderMarkers();
     els.markerLayer.classList.remove('fading');
 
-    img.classList.remove('roll-out');
     void img.offsetWidth;
-    img.classList.add('roll-in');
-    img.addEventListener('animationend', function onRollIn() {
-      img.removeEventListener('animationend', onRollIn);
-      img.classList.remove('roll-in');
+    img.classList.add(inClass);
+    img.addEventListener('animationend', function onSlideIn() {
+      img.removeEventListener('animationend', onSlideIn);
+      img.classList.remove(inClass);
       state.animating = false;
     });
   });
@@ -507,22 +540,26 @@ els.toggleBtn.addEventListener('click', function () {
   setView(state.view === 'atas' ? 'samping' : 'atas');
 });
 
-/* ---------- Klik marker: animasi ripple + buka panel ---------- */
-function onMarkerClick(id, markerEl) {
-  markerEl.classList.remove('bump');
-  void markerEl.offsetWidth;
-  markerEl.classList.add('bump');
+/* ---------- Klik marker: animasi ripple + buka panel ----------
+   highlightKey (opsional): identitas item spesifik yang harus disorot
+   di dalam panel (dipakai saat klik berasal dari hasil pencarian). */
+function onMarkerClick(id, markerEl, highlightKey) {
+  if (markerEl) {
+    markerEl.classList.remove('bump');
+    void markerEl.offsetWidth;
+    markerEl.classList.add('bump');
 
-  var ripple = document.createElement('span');
-  ripple.className = 'ripple';
-  markerEl.appendChild(ripple);
-  ripple.addEventListener('animationend', function () { ripple.remove(); });
+    var ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    markerEl.appendChild(ripple);
+    ripple.addEventListener('animationend', function () { ripple.remove(); });
+  }
 
-  openPanel(id, markerEl);
+  openPanel(id, markerEl, highlightKey);
 }
 
 /* ---------- Panel info titik layout ---------- */
-function openPanel(id, markerEl) {
+function openPanel(id, markerEl, highlightKey) {
   document.querySelectorAll('.marker').forEach(function (m) { m.classList.remove('active'); });
   if (markerEl) markerEl.classList.add('active');
 
@@ -537,7 +574,7 @@ function openPanel(id, markerEl) {
       return;
     }
     if (res.data.name) els.panelTitle.textContent = res.data.name.toUpperCase();
-    renderPanel(res.data.items || []);
+    renderPanel(res.data.items || [], highlightKey);
   }).catch(function () {
     els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
   });
@@ -549,7 +586,12 @@ function closePanel() {
 }
 els.panelClose.addEventListener('click', closePanel);
 
-function renderPanel(items) {
+/** Kunci unik sebuah item, dipakai untuk mencocokkan & menyorot baris yang tepat. */
+function itemKey(p) {
+  return [p.noSeri || '', p.namaProduk || '', p.tipe || '', p.merk || ''].join('||');
+}
+
+function renderPanel(items, highlightKey) {
   if (!items.length) {
     els.panelBody.innerHTML = '<p class="panel-empty">Belum ada produk di titik ini.</p>';
     return;
@@ -564,7 +606,7 @@ function renderPanel(items) {
   Object.keys(groups).forEach(function (merk) {
     html += '<div class="panel-group"><h4>' + escapeHtml(merk) + '</h4><ol>';
     groups[merk].forEach(function (p) {
-      html += '<li><div class="item-main"><span>' + escapeHtml(p.namaProduk) + '</span>';
+      html += '<li data-key="' + escapeHtml(itemKey(p)) + '"><div class="item-main"><span>' + escapeHtml(p.namaProduk) + '</span>';
       if (p.tipe) html += '<span class="item-tipe">' + escapeHtml(p.tipe) + '</span>';
       html += '</div>';
       if (p.noSeri) html += '<span class="seri">No. Seri: ' + escapeHtml(p.noSeri) + '</span>';
@@ -574,6 +616,32 @@ function renderPanel(items) {
     html += '</ol></div>';
   });
   els.panelBody.innerHTML = html;
+
+  if (!highlightKey) return;
+
+  // Cari item yang cocok: utamakan No. Seri (paling unik), baru fallback ke nama+tipe+merk.
+  var targetLis = els.panelBody.querySelectorAll('li');
+  var matched = null;
+  for (var i = 0; i < targetLis.length; i++) {
+    var liKey = targetLis[i].dataset.key || '';
+    if (highlightKey.noSeri && liKey.indexOf(highlightKey.noSeri + '||') === 0) {
+      matched = targetLis[i];
+      break;
+    }
+  }
+  if (!matched) {
+    var fallbackKey = itemKey(highlightKey);
+    for (var j = 0; j < targetLis.length; j++) {
+      if (targetLis[j].dataset.key === fallbackKey) { matched = targetLis[j]; break; }
+    }
+  }
+  if (matched) {
+    matched.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    matched.classList.add('highlight');
+    (function (el) {
+      setTimeout(function () { el.classList.remove('highlight'); }, 2000);
+    })(matched);
+  }
 }
 
 /* ---------- Pencarian ---------- */
@@ -609,7 +677,12 @@ function renderResults(items) {
     return;
   }
   els.searchResults.innerHTML = items.map(function (p) {
-    return '<div class="result-row" data-layout="' + escapeHtml(p.layoutId) + '">' +
+    return '<div class="result-row"' +
+      ' data-layout="' + escapeHtml(p.layoutId) + '"' +
+      ' data-noseri="' + escapeHtml(p.noSeri) + '"' +
+      ' data-nama="' + escapeHtml(p.namaProduk) + '"' +
+      ' data-tipe="' + escapeHtml(p.tipe) + '"' +
+      ' data-merk="' + escapeHtml(p.merk) + '">' +
       '<span class="merk">' + escapeHtml(p.merk) + '</span>' +
       '<span>' + escapeHtml(p.namaProduk) + '</span>' +
       '<span class="tipe">' + escapeHtml(p.tipe) + '</span>' +
@@ -620,15 +693,21 @@ function renderResults(items) {
   els.searchResults.querySelectorAll('.result-row').forEach(function (row) {
     row.addEventListener('click', function () {
       var layoutId = row.dataset.layout;
+      var highlightKey = {
+        noSeri: row.dataset.noseri,
+        namaProduk: row.dataset.nama,
+        tipe: row.dataset.tipe,
+        merk: row.dataset.merk
+      };
       closeResults();
       if (!layoutId) return;
+
+      // Kalau titiknya ada di view yang sedang aktif, langsung klik markernya.
+      // Kalau tidak (marker itu cuma ada di view lain), tetap buka panelnya
+      // walau tanpa marker aktif — data & highlight tetap tampil.
       var markerEl = els.markerLayer.querySelector('[data-id="' + layoutId + '"]');
-      if (markerEl) {
-        onMarkerClick(layoutId, markerEl);
-        markerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        openPanel(layoutId, null);
-      }
+      onMarkerClick(layoutId, markerEl, highlightKey);
+      if (markerEl) markerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
 }
