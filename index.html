@@ -628,18 +628,64 @@ function jsonp(action, params) {
   });
 }
 
-/* ---------- Nama titik dari sheet LAYOUT ---------- */
-function loadLayoutNames() {
-  jsonp('points', {}).then(function (res) {
-    if (!res.success) return;
-    layoutNames = {};
-    res.data.forEach(function (p) { layoutNames[p.id] = p.name; });
-    document.querySelectorAll('.marker').forEach(function (m) {
-      var name = layoutNames[m.dataset.id];
-      if (name) m.title = name;
-    });
-  }).catch(function () { /* nama titik opsional, biarkan default */ });
+/* ---------- Penyimpanan data lokal: ambil sekali, pakai berkali-kali ---------- */
+var DB = { products: [], points: [], loaded: false, promise: null };
+var DB_KEY = 'hospex_db_v1';
+
+function applyDb(data) {
+  DB.products = data.products || [];
+  DB.points = data.points || [];
+  DB.loaded = true;
+  layoutNames = {};
+  DB.points.forEach(function (p) { layoutNames[p.id] = p.name; });
+  document.querySelectorAll('.marker').forEach(function (m) {
+    var name = layoutNames[m.dataset.id];
+    if (name) m.title = name;
+  });
 }
+
+/** Muat data dari cache lokal (instan) lalu segarkan dari server di latar belakang. */
+function loadAll() {
+  if (DB.promise) return DB.promise;
+
+  try {
+    var raw = localStorage.getItem(DB_KEY);
+    if (raw) applyDb(JSON.parse(raw));
+  } catch (e) { /* abaikan */ }
+
+  DB.promise = jsonp('all', {}).then(function (res) {
+    if (!res.success) throw new Error(res.error || 'Gagal memuat data');
+    applyDb(res.data);
+    try { localStorage.setItem(DB_KEY, JSON.stringify(res.data)); } catch (e) {}
+    return res.data;
+  }).catch(function (err) {
+    DB.promise = null; // izinkan coba lagi
+    throw err;
+  });
+  return DB.promise;
+}
+
+/** Selesai langsung kalau data sudah ada (dari cache lokal), kalau belum tunggu server. */
+function whenReady() {
+  return DB.loaded ? Promise.resolve() : loadAll();
+}
+
+function normalizeText(s) {
+  return String(s || '').toUpperCase().replace(/[\s\-_.]/g, '');
+}
+
+function searchLocal(q) {
+  var nq = normalizeText(q);
+  if (!nq) return [];
+  return DB.products.filter(function (p) {
+    return normalizeText(p.merk).indexOf(nq) !== -1 ||
+      normalizeText(p.namaProduk).indexOf(nq) !== -1 ||
+      normalizeText(p.tipe).indexOf(nq) !== -1 ||
+      normalizeText(p.noSeri).indexOf(nq) !== -1 ||
+      normalizeText(p.keterangan).indexOf(nq) !== -1;
+  }).slice(0, 100);
+}
+  
 
 /* ---------- Pemetaan koordinat % gambar asli -> posisi piksel di layar ----------
    Karena stage sekarang full-screen (bisa rasio berapa saja) dan gambar
@@ -788,17 +834,18 @@ function openPanel(id, markerEl, highlightKey) {
 
   els.panelBadge.textContent = id;
   els.panelTitle.textContent = layoutNames[id] ? layoutNames[id].toUpperCase() : ('TITIK ' + id);
-  els.panelBody.innerHTML = '<p class="panel-empty">Memuat...</p>';
   els.panel.classList.add('open');
 
-  jsonp('layout', { id: id }).then(function (res) {
-    if (!res.success) {
-      els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
-      return;
-    }
-    if (res.data.name) els.panelTitle.textContent = res.data.name.toUpperCase();
-    renderPanel(res.data.items || [], highlightKey);
-  }).catch(function () {
+  function show() {
+    els.panelTitle.textContent = layoutNames[id] ? layoutNames[id].toUpperCase() : ('TITIK ' + id);
+    var items = DB.products.filter(function (p) { return p.layoutId === String(id); });
+    renderPanel(items, highlightKey);
+  }
+
+  if (DB.loaded) { show(); return; }
+
+  els.panelBody.innerHTML = '<p class="panel-empty">Memuat...</p>';
+  whenReady().then(show).catch(function () {
     els.panelBody.innerHTML = '<p class="panel-empty">Gagal memuat data.</p>';
   });
 }
@@ -889,13 +936,11 @@ els.searchBtn.addEventListener('click', function () {
 
 function runSearch(q) {
   els.searchResults.classList.add('open');
-  els.searchResults.innerHTML = '<div class="result-empty">Mencari...</div>';
-  jsonp('search', { q: q }).then(function (res) {
-    if (!res.success) {
-      els.searchResults.innerHTML = '<div class="result-empty">Gagal mencari.</div>';
-      return;
-    }
-    renderResults(res.data);
+  if (!DB.loaded) els.searchResults.innerHTML = '<div class="result-empty">Mencari...</div>';
+
+  whenReady().then(function () {
+    if (els.searchInput.value.trim() !== q) return; // ketikan sudah berubah
+    renderResults(searchLocal(q));
   }).catch(function () {
     els.searchResults.innerHTML = '<div class="result-empty">Gagal mencari.</div>';
   });
@@ -1037,28 +1082,15 @@ function handleDownloadPdf() {
   var originalHtml = els.printBtn.innerHTML;
   els.printBtn.innerHTML = '<span class="label">Menyiapkan...</span>';
 
-  Promise.all([
-    jsonp('list', {}),
-    jsonp('points', {}).catch(function () { return { success: false }; })
-  ]).then(function (results) {
-    var listRes = results[0];
-    var pointsRes = results[1];
-    if (!listRes.success) throw new Error(listRes.error || 'Gagal memuat data produk');
-
+  whenReady().then(function () {
     var layoutNameById = {};
-    if (pointsRes.success) {
-      pointsRes.data.forEach(function (p) { layoutNameById[p.id] = p.name; });
-    } else {
-      Object.keys(layoutNames).forEach(function (k) { layoutNameById[k] = layoutNames[k]; });
-    }
+    Object.keys(layoutNames).forEach(function (k) { layoutNameById[k] = layoutNames[k]; });
 
-    els.printReport.innerHTML = buildPrintReportHtml(listRes.data, layoutNameById);
-
-    // Beri browser sedikit waktu untuk render sebelum dialog cetak muncul.
+    els.printReport.innerHTML = buildPrintReportHtml(DB.products, layoutNameById);
     setTimeout(function () { window.print(); }, 50);
   }).catch(function (err) {
     alert('Gagal menyiapkan PDF: ' + err.message);
-  }).finally(function () {
+  }).then(function () {
     els.printBtn.disabled = false;
     els.printBtn.innerHTML = originalHtml;
   });
@@ -1087,8 +1119,8 @@ if (new URLSearchParams(window.location.search).get('debug') === '1') {
 }
 
 /* ---------- Init ---------- */
-loadLayoutNames();
 setView('atas', true);
+loadAll().catch(function (err) { console.error(err); });
 </script>
 </body>
 </html>
